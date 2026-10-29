@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+
 
 from models import EmployeeIn
 from services import employee_service
@@ -9,3 +10,17 @@ router = APIRouter(tags=["employees"])
 @router.post("/employees", status_code=201)
 def create_employee(payload: EmployeeIn):
     return employee_service.create(payload.model_dump(mode="json"))
+
+
+@router.get("/employees")
+def list_employees():
+    return {"employees": employee_service.list_all()}
+
+
+@router.get("/employees/{employee_id}")
+def get_employee(employee_id: str):
+    employee = employee_service.get(employee_id)
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    return employee
