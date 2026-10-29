@@ -23,4 +23,15 @@ def get_employee(employee_id: str):
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
 
+@router.delete("/employees/{employee_id}")
+def delete_employee(employee_id: str):
+    employee_service.delete(employee_id)
+    return {"deleted": employee_id}        
+
+@router.get("/employees")
+def list_employees():
+    employees = employee_service.list_all()
+    return {"employees": employees, "count": len(employees)}
+
+    
     return employee
