@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-
 import aws_cdk as cdk
 
-from hr_leave_portal.hr_leave_portal_stack import HrLeavePortalStack
-
+from hr_leave_portal.backend_stack import BackendStack
 
 app = cdk.App()
-HrLeavePortalStack(app, "HrLeavePortalStack")
+
+BackendStack(app, "HrLeavePortalBackend")
 
 app.synth()
