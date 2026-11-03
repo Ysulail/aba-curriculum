@@ -1,0 +1,79 @@
+{
+  "StartAt": "Route By Request Type",
+  "QueryLanguage": "JSONata",
+  "States": {
+    "Route By Request Type": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Condition": "{% $states.input.hr_request_type = \"TimeOff\" %}",
+          "Next": "Build TimeOff Body"
+        }
+      ],
+      "Default": "Bedrock InvokeModel"
+    },
+    "Build TimeOff Body": {
+      "Type": "Pass",
+      "Output": {
+        "email_body": "{% 'Time off request from ' & $states.input.user_id & '. Requested dates: ' & $states.input.start_date & ' to ' & $states.input.end_date & '.' %}"
+      },
+      "Next": "SNS Publish"
+    },
+    "Bedrock InvokeModel": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::bedrock:invokeModel",
+      "Arguments": {
+        "ModelId": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "Body": {
+          "anthropic_version": "bedrock-2023-05-31",
+          "max_tokens": 200,
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                { "type": "text", "text": "{% $states.input.prompt %}" }
+              ]
+            }
+          ]
+        }
+      },
+      "Output": { "email_body": "{% $states.result.Body.content[0].text %}" },
+      "Next": "SNS Publish"
+    },
+    "SNS Publish": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Arguments": {
+        "Message": "{% $states.input.email_body %}",
+        "TopicArn": "REPLACED_BY_CDK"
+      },
+      "Next": "PutMetricData"
+    },
+    "PutMetricData": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:cloudwatch:putMetricData",
+      "Arguments": {
+        "Namespace": "HR",
+        "MetricData": [
+          {
+            "MetricName": "HrRequests",
+            "Value": 1,
+            "Unit": "Count",
+            "Timestamp": "{% $now() %}",
+            "Dimensions": [
+              {
+                "Name": "hr_request_type",
+                "Value": "{% $states.context.Execution.Input.hr_request_type %}"
+              },
+              {
+                "Name": "user_id",
+                "Value": "{% $states.context.Execution.Input.user_id %}"
+              }
+            ]
+          }
+        ]
+      },
+      "End": true
+    }
+  }
+}
