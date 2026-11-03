@@ -23,21 +23,26 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::bedrock:invokeModel",
       "Arguments": {
-        "ModelId": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "ModelId": "us.amazon.nova-2-lite-v1:0",
         "Body": {
-          "anthropic_version": "bedrock-2023-05-31",
-          "max_tokens": 200,
           "messages": [
             {
               "role": "user",
               "content": [
-                { "type": "text", "text": "{% $states.input.prompt %}" }
+                {
+                  "text": "{% $states.input.prompt %}"
+                }
               ]
             }
-          ]
+          ],
+          "inferenceConfig": {
+            "maxTokens": 200
+          }
         }
       },
-      "Output": { "email_body": "{% $states.result.Body.content[0].text %}" },
+      "Output": {
+        "email_body": "{% $states.result.Body.output.message.content[0].text %}"
+      },
       "Next": "SNS Publish"
     },
     "SNS Publish": {
