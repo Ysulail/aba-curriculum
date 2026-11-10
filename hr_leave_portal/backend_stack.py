@@ -1,8 +1,10 @@
 from aws_cdk import (
+    Acknowledgment,
     CfnOutput,
     Duration,
     RemovalPolicy,
     Stack,
+    Validations,
     aws_apigateway as apigw,
     aws_cognito as cognito,
     aws_dynamodb as dynamodb,
@@ -58,12 +60,21 @@ class BackendStack(Stack):
             layers=[fastapi_layer],
             timeout=Duration.seconds(10),
             memory_size=512,
-            environment={"TABLE_NAME": table.table_name},
+             environment={
+                "TABLE_NAME": table.table_name,
+                "POWERTOOLS_SERVICE_NAME": "hr-api",
+                "POWERTOOLS_LOG_LEVEL": "INFO",
+            },
+            tracing=lambda_.Tracing.ACTIVE,
         )
 
         table.grant_read_write_data(api_function)
+        
 
         self.api_function = api_function
+        self.table = table
+
+
 
         self.user_pool = cognito.UserPool(
             self,
@@ -102,3 +113,18 @@ class BackendStack(Stack):
         CfnOutput(
             self, "UserPoolClientId", value=self.user_pool_client.user_pool_client_id
         )
+        # Findings we've read and decided to accept. Keep them last so they're
+        # easy to find, and never add one without a reason.
+        Validations.of(self).acknowledge(
+            Acknowledgment(
+                id="AwsSolutions::AwsSolutions-COG2",
+                reason="WORKSHOP ONLY. MFA is not enabled to keep sign-in to one step. A real "
+                       "HR system must enable it, see /security/conclusion/.",
+            ),
+            Acknowledgment(
+                id="AwsSolutions::AwsSolutions-APIG4",
+                reason="Fires on CORS preflight OPTIONS methods, which must be unauthenticated. "
+                       "Every other method inherits the Cognito authorizer through "
+                       "default_method_options.",
+            ),
+        )        

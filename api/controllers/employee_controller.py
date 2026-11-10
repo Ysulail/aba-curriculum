@@ -1,7 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from datetime import date
+
 from models import EmployeeIn
 from services import employee_service
+from auth import get_caller, require_owner_or_admin
 
 router = APIRouter(tags=["employees"])
 
@@ -11,22 +13,17 @@ def create_employee(payload: EmployeeIn):
     return employee_service.create(payload.model_dump(mode="json"))
 
 
-@router.get("/employees")
-def list_employees(hiredFrom: date | None = None, hiredTo: date | None = None):
-    if hiredFrom and hiredTo:
-        return {
-            "employees": employee_service.list_by_hire_date(
-                hiredFrom.isoformat(), hiredTo.isoformat()
-            )
-        }
-
-    return {"employees": employee_service.list_all()}
+# ... the other routes are unchanged for now ...
 
 
-@router.get("/employees/{employee_id}")
-def get_employee(employee_id: str):
+@router.delete("/employees/{employee_id}")
+def delete_employee(employee_id: str, caller: dict = Depends(get_caller)):
+    # You can't authorize against a record you haven't read, so fetch first.
     employee = employee_service.get(employee_id)
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    return employee
+    require_owner_or_admin(caller, employee)
+
+    employee_service.delete(employee_id)
+    return {"deleted": employee_id}
