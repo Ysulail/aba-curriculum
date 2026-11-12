@@ -9,15 +9,14 @@ describe('FR6 public runtime configuration', () => {
     expect(() => validateConfig({ ...config, apiUrl: 'http://example.com' })).toThrow('HTTPS')
     expect(() => validateConfig({ ...config, region: 'eu-west-1' })).toThrow('match')
   })
-  it('loads configuration from environment variables', async () => {
-    await expect(loadConfig()).resolves.toEqual(
-      validateConfig({
-        region: import.meta.env.VITE_AWS_REGION,
-        userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
-        userPoolClientId: import.meta.env.VITE_COGNITO_USER_POOL_CLIENT_ID,
-        apiUrl: import.meta.env.VITE_API_BASE_URL,
-        agentRuntimeArn: import.meta.env.VITE_AGENT_RUNTIME_ARN,
-      })
-    )
+  it('reports missing environment configuration', async () => {
+    vi.stubEnv('VITE_AWS_REGION', '')
+    vi.stubEnv('VITE_COGNITO_USER_POOL_ID', '')
+    vi.stubEnv('VITE_COGNITO_USER_POOL_CLIENT_ID', '')
+    vi.stubEnv('VITE_API_BASE_URL', '')
+    vi.stubEnv('VITE_AGENT_RUNTIME_ARN', '')
+
+    await expect(loadConfig()).rejects.toThrow('Missing configuration')
+    vi.unstubAllEnvs()
   })
 })
