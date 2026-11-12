@@ -1,0 +1,36 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup uv (+ Python 3.14)
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.14'
+          cache-suffix: ${{ github.job }}
+
+      - name: Install Python deps
+        run: uv sync
+
+      - name: Python unit tests (services + CDK assertions)
+        run: uv run pytest tests/unit -v
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: UI unit tests (vitest)
+        run: cd ui && npm install && npm test
