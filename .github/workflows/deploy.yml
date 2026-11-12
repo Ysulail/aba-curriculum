@@ -1,0 +1,93 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup uv (+ Python 3.14)
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.14"
+          cache-suffix: ${{ github.job }}
+
+      - name: Install Python deps
+        run: uv sync
+
+      - name: Python unit tests (services + CDK assertions)
+        run: uv run pytest tests/unit -v
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: UI unit tests (vitest)
+        run: cd ui && npm install && npm test
+
+  security:
+    name: security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup uv (+ Python 3.14)
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.14"
+          cache-suffix: ${{ github.job }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Install deps and build UI
+        run: |
+          uv sync
+          cd ui
+          npm install
+          npm run build
+
+      - name: cdk synth (runs cdk-nag when enabled in app.py) — BLOCKS
+        run: uv run cdk synth --quiet
+
+      - name: Dependency scan (Python) — WARN
+        run: uvx pip-audit || echo "::warning::pip-audit reported vulnerabilities, triage them"
+
+      - name: Dependency scan (UI) — WARN
+        run: cd ui && npm audit --audit-level=high || echo "::warning::npm audit reported vulnerabilities, triage them"
+
+  ash:
+    name: security · ASH
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          cache-suffix: ${{ github.job }}
+
+      - name: Run Automated Security Helper (ASH) — WARN
+        run: |
+          uvx git+https://github.com/awslabs/automated-security-helper.git@v3.7.0 \
+            --source-dir . --mode local \
+            || echo "::warning::ASH reported findings — see the ash-report artifact"
+
+      - name: Upload ASH report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ash-report
+          path: .ash/ash_output/reports/
+          retention-days: 7
